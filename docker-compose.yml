@@ -1,0 +1,162 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # DATABASE — one Postgres instance, 6 databases
+  # Each service gets its own database (database-per-service pattern).
+  # Databases are created by init-databases.sql on first boot.
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: backendlab-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - backendlab
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # CACHE — Redis
+  # Used for: distributed rate limiting, session cache, SignalR backplane,
+  # tenant-scoped cache (keys prefixed with tenantId).
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: backendlab-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - backendlab
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # MESSAGE BROKER — RabbitMQ
+  # Used by MassTransit for async inter-service events and saga coordination.
+  # Management UI → http://localhost:15672 (guest / guest)
+  # ─────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: backendlab-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"     # AMQP protocol — services connect here
+      - "15672:15672"   # Management UI — see queues, exchanges, messages
+    networks:
+      - backendlab
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # STRUCTURED LOG VIEWER — Seq
+  # Serilog in each service ships logs here.
+  # Lets you search, filter, and correlate logs across services by correlation ID.
+  # Ingestion → port 5341 | UI → http://localhost:8081
+  # ─────────────────────────────────────────────
+  seq:
+    image: datalust/seq:latest
+    container_name: backendlab-seq
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: "admin123"
+    volumes:
+      - seq_data:/data
+    ports:
+      - "5341:5341"   # Serilog ships logs to this port
+      - "8081:80"     # UI → http://localhost:8081
+    networks:
+      - backendlab
+
+  # ─────────────────────────────────────────────
+  # DISTRIBUTED TRACING — Jaeger
+  # Each service sends OpenTelemetry traces here via OTLP.
+  # You can see a full trace: Nginx → auth-service → order-service → user-service (gRPC).
+  # UI → http://localhost:16686
+  # ─────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: backendlab-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI → http://localhost:16686
+      - "4317:4317"     # OTLP gRPC — services send traces here
+      - "4318:4318"     # OTLP HTTP — alternative ingestion
+    networks:
+      - backendlab
+
+  # ─────────────────────────────────────────────
+  # METRICS STORAGE — Prometheus
+  # Scrapes /metrics from each service every 15 seconds.
+  # Stores time-series data: request counts, latency, error rates.
+  # Grafana reads from Prometheus to build dashboards.
+  # UI → http://localhost:9090
+  # ─────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: backendlab-prometheus
+    volumes:
+      - ./infra/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"   # UI → http://localhost:9090
+    networks:
+      - backendlab
+
+  # ─────────────────────────────────────────────
+  # METRICS DASHBOARD — Grafana
+  # Connects to Prometheus as a data source.
+  # Build dashboards for latency, error rates, throughput per service.
+  # UI → http://localhost:3000 (admin / admin)
+  # ─────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: backendlab-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"   # UI → http://localhost:3000
+    depends_on:
+      - prometheus
+    networks:
+      - backendlab
+
+  # ─────────────────────────────────────────────
+  # App services (auth-service, user-service, etc.)
+  # will be added here as we build each one in later phases.
+  # ─────────────────────────────────────────────
+
+networks:
+  backendlab:
+    driver: bridge  # All containers on the same virtual network — can talk to each other by container name
+
+volumes:
+  postgres_data:    # Persists DB data between restarts
+  redis_data:       # Persists Redis data
+  rabbitmq_data:    # Persists RabbitMQ queues and messages
+  seq_data:         # Persists Seq logs
+  prometheus_data:  # Persists Prometheus metrics history
+  grafana_data:     # Persists Grafana dashboards and settings

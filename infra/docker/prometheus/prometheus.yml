@@ -1,0 +1,47 @@
+# Prometheus scrape configuration.
+# Prometheus polls each service's /metrics endpoint every 15 seconds and stores the data.
+# Grafana then reads from Prometheus to build dashboards.
+# We uncomment each service's job as we build and add it to docker-compose.
+
+global:
+  scrape_interval: 15s       # How often Prometheus scrapes metrics from each target
+  evaluation_interval: 15s   # How often Prometheus evaluates alerting rules
+
+scrape_configs:
+
+  # Prometheus scrapes itself (useful for monitoring the monitoring system)
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Uncomment as we add each service:
+
+  # - job_name: auth-service
+  #   static_configs:
+  #     - targets: ['auth-service:8080']
+  #   metrics_path: /metrics
+
+  # - job_name: user-service
+  #   static_configs:
+  #     - targets: ['user-service:8080']
+  #   metrics_path: /metrics
+
+  # - job_name: order-service
+  #   static_configs:
+  #     - targets: ['order-service:8080']
+  #   metrics_path: /metrics
+
+  # - job_name: inventory-service
+  #   static_configs:
+  #     - targets: ['inventory-service:8080']
+  #   metrics_path: /metrics
+
+  # - job_name: payment-service
+  #   static_configs:
+  #     - targets: ['payment-service:8080']
+  #   metrics_path: /metrics
+
+  # - job_name: notification-service
+  #   static_configs:
+  #     - targets: ['notification-service:8080']
+  #   metrics_path: /metrics
