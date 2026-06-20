@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AuthService.Application\AuthService.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\BuildingBlocks\BuildingBlocks.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
