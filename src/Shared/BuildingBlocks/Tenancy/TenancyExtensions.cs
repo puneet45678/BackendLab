@@ -10,6 +10,7 @@ public static class TenancyExtensions
     {
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+        services.AddScoped<ITenantSetter>(sp => sp.GetRequiredService<TenantContext>());
         return services;
     }
 

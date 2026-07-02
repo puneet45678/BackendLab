@@ -2,7 +2,7 @@ using Contracts.Common;
 
 namespace BuildingBlocks.Tenancy;
 
-public class TenantContext : ITenantContext
+public class TenantContext : ITenantContext, ITenantSetter
 {
     private Guid? _tenantId;
 
