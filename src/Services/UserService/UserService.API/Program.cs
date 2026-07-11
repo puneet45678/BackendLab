@@ -1,6 +1,9 @@
 using BuildingBlocks.Tenancy;
+using FluentValidation;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using UserService.API.Endpoints;
+using UserService.Application.Common.Behaviors;
 using UserService.Application.Common.Settings;
 using UserService.Application.Users.Commands.RegisterUser;
 using UserService.Domain.Repositories;
@@ -30,9 +33,13 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
-// MediatR — scans the Application assembly for all handlers
+// MediatR
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(RegisterUserHandler).Assembly));
+
+// FluentValidation
+builder.Services.AddValidatorsFromAssembly(typeof(RegisterUserHandler).Assembly);
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 var app = builder.Build();
 

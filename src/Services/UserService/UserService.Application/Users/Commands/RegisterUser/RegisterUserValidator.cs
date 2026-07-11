@@ -2,9 +2,9 @@ using FluentValidation;
 
 namespace UserService.Application.Users.Commands.RegisterUser;
 
-public class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
+public class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand>
 {
-    public RegisterUserValidator()
+    public RegisterUserCommandValidator()
     {
         RuleFor(x => x.FullName)
             .NotEmpty().WithMessage("Full name is required")
